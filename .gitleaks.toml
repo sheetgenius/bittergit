@@ -1,0 +1,11 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Exact synthetic values used to prove redaction and rejection"
+regexTarget = "secret"
+regexes = [
+  '''^dev-token$''',
+  '''^sk_live_1234567890abcdef$''',
+  '''^sk_live_12345678901234567890$'''
+]

@@ -1,0 +1,32 @@
+name: Feature proposal
+description: Propose a focused source-custody capability or improvement.
+title: "proposal: "
+labels: [proposal]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: User or custody problem
+      description: What concrete outcome is difficult today?
+    validations:
+      required: true
+  - type: textarea
+    id: boundary
+    attributes:
+      label: BitterGit boundary
+      description: Why does this belong in source custody rather than identity, secrets, execution, or deployment?
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Executable proof
+      description: What narrow test or verification gate would prove the outcome?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives and non-goals
+    validations:
+      required: true

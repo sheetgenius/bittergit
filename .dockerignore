@@ -1,0 +1,8 @@
+.git
+.var
+node_modules
+tmp
+*.log
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal

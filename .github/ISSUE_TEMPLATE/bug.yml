@@ -1,0 +1,48 @@
+name: Bug report
+description: Report a reproducible BitterGit defect without sensitive data.
+title: "bug: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not include credentials, private repository names, customer data, or production logs. Use private vulnerability reporting for security issues.
+  - type: input
+    id: version
+    attributes:
+      label: Revision
+      description: Commit SHA or release version.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Bun version, and Git version.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction
+      description: Minimal steps using disposable data.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: I removed credentials, customer data, private repository names, and production topology.
+          required: true
