@@ -1,9 +1,17 @@
 # BitterGit
 
-BitterGit is an experimental Git-compatible source-custody service for
-AI-assisted app workflows. It uses ordinary Git repositories underneath and
-adds app-oriented history, checkpoints, restore, workcell credentials, import
-review, and source-linked receipts around them.
+BitterGit is an open-source, self-hosted Git service for AI coding agents. It
+keeps ordinary Git repositories as the source of truth and adds scoped
+credentials, checkpoints, restore, import review, and source-linked records
+around them.
+
+This repository contains the Apache-2.0 server implementation.
+BitterGit is the source-custody layer in [Bitter](https://bitter.sh/), a
+prepared workspace and CLI for agentic coding, but it can also run on its own.
+[BitterGit.com](https://bittergit.com/) describes the product and its hosted
+direction, which is currently in early access. Bitter's account, workspace,
+agent, secret, deployment, and support services are not bundled in this
+repository.
 
 > [!WARNING]
 > BitterGit is alpha software. It has strong local verification coverage, but
@@ -13,10 +21,18 @@ review, and source-linked receipts around them.
 
 ## Why it exists
 
-AI tools can create source quickly, but durable custody still requires a real
-repository, scoped credentials, recoverable history, and an exact source
-revision for every deploy. BitterGit explores that layer without requiring
-GitHub as the first step and without inventing a new version-control protocol.
+Starting an app in Bitter should not require creating or connecting a GitHub
+account first. For someone who does not already use GitHub, that adds another
+account and another setup step before an agent can do useful work. BitterGit
+gives each app an ordinary Git repository from the beginning, so its source
+stays cloneable, exportable, and compatible with standard Git tools. GitHub and
+other providers can still be connected later as mirrors or external sources;
+they are options, not prerequisites.
+
+AI tools can create code quickly, but keeping that code under your control
+still requires scoped write access, recoverable history, and an exact commit
+behind every deploy. BitterGit handles that layer without replacing Git with a
+custom version-control protocol.
 
 The project currently includes:
 
