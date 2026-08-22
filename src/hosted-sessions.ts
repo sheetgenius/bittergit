@@ -13,6 +13,7 @@ import {
 } from "./agent-readiness";
 import {
   gridTerminalFulfillmentFromJson,
+  gridTerminalFulfillmentSupportJson,
   requestGridTerminalFulfillment,
   revokeGridTerminalFulfillmentRemote,
   serializeGridTerminalFulfillment
@@ -319,10 +320,57 @@ export function hostedWorkcellSessionToJson(session: HostedWorkcellSession): Rec
 
 export function hostedWorkcellSessionSupportJson(session: HostedWorkcellSession): Record<string, unknown> {
   const productionSsh = productionSshFromJson(session.production_ssh_json);
+  const terminalFulfillment = terminalFulfillmentForSession(session);
+  const repo = findRepositoryById(session.repo_id);
   return {
-    ...hostedWorkcellSessionToJson(session),
-    production_ssh: productionSshSupportJson(productionSsh, session.status)
+    id: session.id,
+    app_id: session.app_id,
+    repo_id: session.repo_id,
+    account_ref: session.account_ref,
+    workspace_ref: session.workspace_ref,
+    workcell_id: session.workcell_id,
+    git_token_ref: null,
+    git_token_ref_returned: false,
+    source_root: null,
+    source_root_returned: false,
+    terminal_url: null,
+    terminal_url_configured: Boolean(session.terminal_url),
+    terminal_url_returned: false,
+    terminal_provider: session.terminal_provider,
+    terminal_status: session.terminal_status,
+    terminal_message: supportTerminalMessage(session.terminal_status),
+    terminal_route: null,
+    terminal_route_configured: Boolean(session.terminal_route),
+    terminal_route_returned: false,
+    terminal_lifecycle: session.terminal_lifecycle,
+    terminal_fulfillment: gridTerminalFulfillmentSupportJson(terminalFulfillment),
+    production_ssh: productionSshSupportJson(productionSsh, session.status),
+    status: session.status,
+    agent_readiness: {
+      terminal_ready: session.terminal_status === "ready",
+      source_saved: true,
+      github_optional: true,
+      origin_remote: repo ? cloneUrl(repo.owner, repo.name) : "",
+      first_task: "Establish the app charter with the user in APP.md, including axes of excellence and verification gates.",
+      agents: ["claude", "codex"],
+      token_posture: "run_scoped_credential_helper",
+      production_ssh: productionSshSupportJson(productionSsh, session.status),
+      evidence: readinessSummary(session.id)
+    },
+    agent_readiness_checks: listAgentReadinessChecks(session.id).map(readinessCheckToJson),
+    readiness_message: session.readiness_message,
+    created_at: session.created_at,
+    updated_at: session.updated_at,
+    revoked_at: session.revoked_at,
+    projection: "support_safe_v1"
   };
+}
+
+function supportTerminalMessage(status: string): string {
+  if (status === "revoked") return "Hosted workcell session revoked; terminal fulfillment is no longer active.";
+  if (status === "blocked") return "Terminal fulfillment needs repair before the hosted terminal is ready.";
+  if (status === "ready") return "Terminal fulfillment is ready for this app-scoped workcell.";
+  return "Terminal fulfillment is in progress for this app-scoped workcell.";
 }
 
 function readinessMessage(productionSsh: ProductionSshPolicy): string {

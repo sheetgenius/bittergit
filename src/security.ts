@@ -64,8 +64,8 @@ export function securityPosture(): Record<string, unknown> {
     token_transport: "Authorization header or Git Basic password; tokens are hashed at rest",
     dependency_scan: {
       package_json: true,
-      lockfile: false,
-      status: "local dependency scan not configured"
+      lockfile: true,
+      status: "bun.lock committed; bun audit runs in CI"
     },
     quota_policy: {
       repo_storage: "not enforced in local spike",

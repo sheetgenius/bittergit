@@ -27,6 +27,10 @@ These invariants apply to every gate:
 - Every agent run that changes source produces or references a checkpoint.
 - Secrets and credential grants never enter Git, mirrors, receipts, logs, or
   user-visible API responses.
+- Support and terminal surfaces do not return server paths, hosting topology,
+  credential references, or raw downstream errors.
+- Every ref mutation, including deletion and import, is authorized against its
+  actual destination ref before mutation begins.
 - GitHub is never required to create a new BitterGit-primary app.
 - GitHub/GitLab/etc. are adapters, mirrors, or external-primary providers, not
   prerequisites.
@@ -51,12 +55,13 @@ machine paths, customer identifiers, or operational references.
 
 ## Current Hard Stop
 
-Every locally reproducible gate through Gate 53 has executable smoke coverage
+Every locally reproducible gate through Gate 55 has executable smoke coverage
 under `scripts/`. Gate 50 is a cross-repository Factory contract and remains in
 the Factory test suite rather than the standalone BitterGit runner.
 
 The initial source-custody and integration contract sequence is complete
-through Gate 52. Gate 53 adds the public runtime safety boundary.
+through Gate 52. Gates 53 through 55 add public runtime, disclosure, and ref
+authorization boundaries without changing the deployment integration contract.
 
 Run `scripts/verify.sh` before treating further changes as safe.
 
@@ -880,8 +885,8 @@ Required capability:
 - hosted session returns an HTTP terminal URL
 - terminal URL resolves to a redacted handoff page
 - session records terminal provider, terminal status, and terminal message
-- terminal handoff page shows ready status, source root, BitterGit origin,
-  account/app refs, and first-charter prompt
+- terminal handoff page shows ready status, tokenless BitterGit origin, and the
+  first-charter prompt without rendering filesystem or account/app topology
 - support-debug includes terminal URL/provider/status without token material
 
 Acceptance:
@@ -890,7 +895,8 @@ Acceptance:
 - fetching `terminal_url` returns a terminal handoff page.
 - terminal page says source is saved in BitterGit, GitHub is optional, and the
   first task is `APP.md` chartering.
-- terminal page does not expose token values or GitHub as origin.
+- terminal page does not expose token values, filesystem roots, account/app
+  refs, hosting targets, or GitHub as origin.
 
 Stop conditions:
 
@@ -1130,7 +1136,7 @@ Acceptance:
   `terminal_fulfillment.provider=bittergrid_adapter_local`.
 - `POST /bittergit/v1/customer/apps/:app_id/workcell-sessions/:session_id/terminal-fulfillment`
   refreshes the same Grid-shaped fulfillment contract.
-- terminal handoff page displays route and lifecycle.
+- terminal handoff page displays route posture and lifecycle.
 - session checkout can push before revoke and cannot push after revoke.
 - support-debug shows terminal fulfillment state and redacts token material.
 
@@ -2112,6 +2118,90 @@ Stop conditions:
 - an account-scoped artifact request can read arbitrary server-local paths
 - the Docker image runs the service as root
 
+## Gate 54: Support And Terminal Disclosure Boundary
+
+Purpose:
+
+Keep customer-facing support and terminal diagnostics useful without exposing
+the infrastructure and credential-custody details needed by internal control
+planes.
+
+Required capability:
+
+- the authenticated hosted-session response retains the established Factory
+  orchestration fields used for workcell fulfillment and deployment
+- repository support projects session, launch, mirror, remote, production SSH,
+  and Grid state through explicit safe serializers
+- support output omits server filesystem roots, Grid API addresses, host/box
+  refs, Grid workcell/session/operation refs, Git token record refs, mirror
+  credential refs, and private local remote paths
+- the terminal handoff page presents status, route posture, mode, owner plane,
+  and tokenless origin without rendering local paths or hosting targets
+- downstream Grid and mirror failures are converted to stable public messages
+  before they reach customer or repository-read responses
+
+Acceptance:
+
+- `test/disclosure-boundary.test.ts` proves the support projections reject
+  synthetic path, topology, vault-reference, and downstream-error sentinels
+- `test/production-ssh.test.ts` proves the orchestration projection retains its
+  target while the support projection returns only target posture
+- `scripts/smoke-gate-54-support-disclosure-boundary.sh` proves the live
+  authenticated orchestration response remains compatible while repo support,
+  customer support, and terminal HTML omit the same internal values
+- earlier production SSH, dedicated-box, hosted-agent, and support gates remain
+  green with the safe projections
+
+Stop conditions:
+
+- a support serializer spreads an internal storage or control-plane object
+- repository-read support returns a filesystem root, private host ref, Grid API
+  address, Grid runtime identifier, token record ref, or vault credential ref
+- terminal HTML renders app/account topology, a Grid box, a source root, or a
+  production SSH target
+- a downstream exception or stored legacy error is returned verbatim
+- the safe projection removes fields that Factory uses from the authenticated
+  workcell-session orchestration response
+
+## Gate 55: Ref Authorization Preflight
+
+Purpose:
+
+Apply the existing token scope model to every actual destination ref before a
+push deletion, pull-request merge, or generic Git import can mutate custody.
+
+Required capability:
+
+- pre-receive authorization checks deletions as well as create/update pushes
+- pull-request merge authorization checks the pull request's actual base ref
+- generic Git import discovers all destination heads and tags, authorizes the
+  complete set, and performs no fetch or destination-ref mutation if any ref is
+  denied
+- internal account-scoped app import uses an explicit system/admin capability
+- ordinary branch writers retain feature-branch access while main/tag-capable
+  and admin callers retain the existing import path
+
+Acceptance:
+
+- `test/ref-authorization.test.ts` proves protected deletion refusal, complete
+  import preflight, no denied-import namespace/ref mutation, and successful
+  main/admin imports
+- `test/private-git-import-auth.test.ts` remains green for authenticated private
+  sources
+- `scripts/smoke-gate-55-ref-authorization.sh` proves a branch writer can merge
+  into a feature base but not main, can delete its feature ref but not main or a
+  tag, and receives an atomic mixed-ref import denial while the established
+  main-token import succeeds
+- the stock Git and Gate 12 import/export contracts remain green
+
+Stop conditions:
+
+- deleting a ref bypasses token scope checks
+- merge authorization assumes `refs/heads/main` instead of the actual base ref
+- an import fetches or updates any ref before all destination refs are allowed
+- a denied mixed-ref import partially changes repository refs
+- internal callers gain an implicit authorization bypass
+
 ## Long-Horizon Done State
 
 BitterGit is healthy when:
@@ -2129,5 +2219,5 @@ BitterGit is healthy when:
 - operators can debug custody, mirror, deploy, and receipt issues from product
   surfaces before falling back to SSH
 
-That is the target. Every locally reproducible gate through Gate 53 has
+That is the target. Every locally reproducible gate through Gate 55 has
 executable smoke coverage; Gate 50 remains a cross-repository Factory proof.

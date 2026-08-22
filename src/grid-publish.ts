@@ -324,19 +324,24 @@ export function gridPublishSupportJson(request: GridPublishRequest): Record<stri
     environment: request.environment,
     status: request.status,
     owner_plane: request.owner_plane,
-    grid_operation_ref: request.grid_operation_ref,
+    grid_operation_ref: null,
+    grid_operation_linked: Boolean(request.grid_operation_ref),
+    grid_operation_ref_returned: false,
     grid_receipt_id: request.grid_receipt_id,
     callback_status: request.callback_status,
     callback_received_at: request.callback_received_at,
     published_url_present: Boolean(request.preview_url),
     verification_status: request.verification_status,
-    repair_action: request.repair_action,
+    repair_action: request.repair_action
+      ? "Retry publish through the BitterGrid support workflow."
+      : null,
     restore_candidate: request.checkpoint_id ? {
       checkpoint_id: request.checkpoint_id,
       commit_sha: request.commit_sha,
       deployment_id: request.deployment_id
     } : null,
-    private_logs_included: false
+    private_logs_included: false,
+    projection: "support_safe_v1"
   };
 }
 

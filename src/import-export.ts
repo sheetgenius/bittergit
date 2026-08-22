@@ -7,6 +7,7 @@ import { ensureStorage } from "./storage";
 import type { Repository } from "./repos";
 import { readRefs, recordRefChanges, syncRefIndex, type RefMap } from "./events";
 import { scanUnsafeSource } from "./source-safety";
+import { unauthorizedRefs, type RefAuthorizer } from "./ref-authorization";
 
 export type ImportSourceAuth = {
   type?: "basic" | "github_oauth" | "token";
@@ -28,6 +29,10 @@ export type ImportRecord = {
   actor: string;
   error: string | null;
   created_at: string;
+};
+
+export type ImportRefAuthorization = {
+  authorizeRef: RefAuthorizer;
 };
 
 type ExportRecord = {
@@ -61,7 +66,7 @@ export function importFromGitRemote(repo: Repository, input: {
   source_url?: string;
   default_branch?: string;
   source_auth?: ImportSourceAuth | null;
-}, actor: string): ImportRecord {
+}, actor: string, authorization: ImportRefAuthorization): ImportRecord {
   const sourceUrl = requireRemote(input.source_url, "source_url");
   const provider = validateProvider(input.provider ?? "generic_git");
   const defaultBranch = validateBranch(input.default_branch ?? "main");
@@ -72,6 +77,11 @@ export function importFromGitRemote(repo: Repository, input: {
   try {
     return withGitCredentialEnv(sourceAuth, (env) => {
       const remoteRefs = readRemoteRefs(sourceUrl, env);
+      const deniedRefs = unauthorizedRefs(remoteRefs.keys(), authorization.authorizeRef);
+      if (deniedRefs.length > 0) {
+        const suffix = deniedRefs.length === 1 ? "" : ` and ${deniedRefs.length - 1} other ref(s)`;
+        throw new Error(`not authorized to import ${deniedRefs[0]}${suffix}`);
+      }
       fetchIntoImportNamespace(repo, sourceUrl, id, env);
       for (const [ref, sha] of remoteRefs) {
         if (ref.startsWith("refs/heads/")) scanUnsafeSource(repo.storage_path, sha);

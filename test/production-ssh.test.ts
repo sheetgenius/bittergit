@@ -28,7 +28,7 @@ describe("production SSH session policy", () => {
     expect(policy.write_reason_present).toBe(true);
   });
 
-  test("support and session JSON do not expose write reason or credential material", () => {
+  test("support hides targets while the orchestration session retains them", () => {
     const policy = normalizeProductionSsh({
       write_enabled: true,
       write_reason: "Sensitive operational reason",
@@ -47,5 +47,12 @@ describe("production SSH session policy", () => {
       credential_material_returned: false,
       key_material_returned: false
     });
+    expect(sessionJson).toMatchObject({ target: { service: "web", host_ref: "grid-host-01" } });
+    expect(supportJson).toMatchObject({
+      target: { service: null, host_ref: null },
+      target_configured: true,
+      target_ref_returned: false
+    });
+    expect(JSON.stringify(supportJson)).not.toContain("grid-host-01");
   });
 });
