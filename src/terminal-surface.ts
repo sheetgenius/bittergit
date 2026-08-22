@@ -2,8 +2,8 @@ import { cloneUrl } from "./config";
 import { findRepositoryById } from "./repos";
 import { findHostedWorkcellSession, type HostedWorkcellSession } from "./hosted-sessions";
 import { listAgentReadinessChecks, readinessCheckToJson, readinessSummary } from "./agent-readiness";
-import { productionSshFromJson, productionSshSessionJson } from "./production-ssh";
-import { gridTerminalFulfillmentFromJson } from "./grid-terminal";
+import { productionSshFromJson, productionSshSupportJson } from "./production-ssh";
+import { gridTerminalFulfillmentFromJson, gridTerminalFulfillmentSupportJson } from "./grid-terminal";
 
 export function findTerminalSession(sessionId: string): HostedWorkcellSession | undefined {
   return findHostedWorkcellSession(sessionId);
@@ -14,8 +14,8 @@ export function terminalPage(session: HostedWorkcellSession): Response {
   const remote = repo ? cloneUrl(repo.owner, repo.name) : "unknown";
   const readiness = readinessSummary(session.id);
   const checks = listAgentReadinessChecks(session.id).map(readinessCheckToJson);
-  const productionSsh = productionSshSessionJson(productionSshFromJson(session.production_ssh_json), session.status);
-  const terminalFulfillment = gridTerminalFulfillmentFromJson(session.terminal_fulfillment_json, {
+  const productionSsh = productionSshSupportJson(productionSshFromJson(session.production_ssh_json), session.status);
+  const terminalFulfillment = gridTerminalFulfillmentSupportJson(gridTerminalFulfillmentFromJson(session.terminal_fulfillment_json, {
     id: session.terminal_fulfillment_id ?? `grid_terminal_${session.id}`,
     provider: session.terminal_provider,
     route: session.terminal_route ?? `/terminals/${encodeURIComponent(session.id)}`,
@@ -26,7 +26,7 @@ export function terminalPage(session: HostedWorkcellSession): Response {
     app_id: session.app_id,
     repo_id: session.repo_id,
     account_ref: session.account_ref
-  });
+  }));
   const body = `<!doctype html>
 <html lang="en">
 <head>
@@ -61,14 +61,10 @@ export function terminalPage(session: HostedWorkcellSession): Response {
         <div><dt>Status</dt><dd>${escapeHtml(session.status)}</dd></div>
         <div><dt>Terminal provider</dt><dd>${escapeHtml(session.terminal_provider)}</dd></div>
         <div><dt>Terminal status</dt><dd>${escapeHtml(session.terminal_status)}</dd></div>
-        <div><dt>Terminal route</dt><dd><code>${escapeHtml(session.terminal_route ?? "")}</code></dd></div>
+        <div><dt>Terminal route configured</dt><dd>${escapeHtml(String(terminalFulfillment.route_configured))}</dd></div>
         <div><dt>Terminal lifecycle</dt><dd>${escapeHtml(session.terminal_lifecycle ?? "")}</dd></div>
         <div><dt>Terminal mode</dt><dd>${escapeHtml(String(terminalFulfillment.mode ?? "local_adapter"))}</dd></div>
-        <div><dt>Grid box</dt><dd>${escapeHtml(String(terminalFulfillment.box_ref ?? "local"))}</dd></div>
-        <div><dt>Source root</dt><dd><code>${escapeHtml(session.source_root)}</code></dd></div>
         <div><dt>Origin</dt><dd><code>${escapeHtml(remote)}</code></dd></div>
-        <div><dt>App</dt><dd><code>${escapeHtml(session.app_id)}</code></dd></div>
-        <div><dt>Account</dt><dd><code>${escapeHtml(session.account_ref)}</code></dd></div>
       </dl>
     </section>
     <section>
@@ -77,7 +73,7 @@ export function terminalPage(session: HostedWorkcellSession): Response {
         <div><dt>Mode</dt><dd>${escapeHtml(String(productionSsh.mode))}</dd></div>
         <div><dt>Read-only diagnostics</dt><dd>${escapeHtml(String(productionSsh.read_only_diagnostics_enabled))}</dd></div>
         <div><dt>Write/operate</dt><dd>${escapeHtml(String(productionSsh.write_enabled))}</dd></div>
-        <div><dt>Target</dt><dd><code>${escapeHtml(JSON.stringify(productionSsh.target))}</code></dd></div>
+        <div><dt>Target configured</dt><dd>${escapeHtml(String(productionSsh.target_configured))}</dd></div>
         <div><dt>Owner plane</dt><dd>${escapeHtml(String(productionSsh.owner_plane))}</dd></div>
       </dl>
       <p>Use production SSH only for live diagnostics or explicit break-glass work. Write/operate commands require explicit session enablement.</p>

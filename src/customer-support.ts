@@ -1,7 +1,7 @@
 import type { AccountAssertion } from "./assertions";
 import { planSummary } from "./assertions";
 import { findAccountAppById } from "./apps";
-import { findSetupStateForApp, setupStateToJson } from "./app-bundles";
+import { findSetupStateForApp, setupStateSupportJson } from "./app-bundles";
 import { listCharterFirstRunsForRepo } from "./charter-first-runs";
 import { listDeployments, listReceipts } from "./deployments";
 import { listGridPublishRequestsForRepo } from "./grid-publish";
@@ -15,6 +15,7 @@ import {
 } from "./secret-grants";
 import { listSecretRefs } from "./secrets";
 import { productionSshFromJson, productionSshSupportJson } from "./production-ssh";
+import { isRecord, supportImportSummary, supportSourceContract } from "./support-projection";
 
 type RepairItem = {
   plane: string;
@@ -30,7 +31,7 @@ export function customerAppSupportDebug(assertion: AccountAssertion, appId: stri
   if (!repo) throw new Error("app repository missing");
 
   const setup = findSetupStateForApp(app.id);
-  const setupJson = setup ? setupStateToJson(setup) : null;
+  const setupJson = setup ? setupStateSupportJson(setup) : null;
   const receipts = listReceipts(repo) as Array<Record<string, unknown>>;
   const sessions = listHostedWorkcellSessionsForRepo(repo);
   const launches = listHostedAgentLaunchesForRepo(repo);
@@ -141,25 +142,19 @@ function importSummary(receipts: Array<Record<string, unknown>>): Record<string,
   if (gitReceipt) {
     const body = gitReceipt.body as Record<string, unknown>;
     const summary = body.import_summary as Record<string, unknown> | undefined;
+    const projected = supportImportSummary({
+      ...(summary ?? {}),
+      source_contract: summary?.source_contract ?? body.source_contract
+    });
     return {
+      ...projected,
       source_kind: "git_url_import",
-      import_id: summary?.import_id ?? null,
-      source_url: summary?.source_url ?? null,
-      default_branch: summary?.default_branch ?? null,
-      branch_count: summary?.branch_count ?? null,
-      tag_count: summary?.tag_count ?? null,
-      head_sha: summary?.head_sha ?? null,
-      source_contract: summary?.source_contract ?? body.source_contract ?? null,
-      source_of_truth: summary?.source_of_truth ?? null,
-      upstream_relationship: summary?.upstream_relationship ?? null,
-      sync_contract: summary?.sync_contract ?? null,
-      upstream_after_import: summary?.upstream_after_import ?? null,
-      scaffold_added_count: Array.isArray(summary?.scaffold_added) ? summary.scaffold_added.length : null,
-      scaffold_preserved_count: Array.isArray(summary?.scaffold_preserved) ? summary.scaffold_preserved.length : null,
-      context_files: summary?.context_files ?? body.context_files ?? null,
-      terminal_prompt_disabled: summary?.terminal_prompt_disabled === true,
-      blocked_count: 0,
-      skip_count: 0
+      source_contract: projected?.source_contract ?? supportSourceContract(body.source_contract),
+      blocked_count: Array.isArray(summary?.blocked) ? summary.blocked.length : 0,
+      skip_count: Array.isArray(summary?.skipped) ? summary.skipped.length : 0,
+      context_files: null,
+      context_files_configured: isRecord(summary?.context_files) || isRecord(body.context_files),
+      context_files_returned: false
     };
   }
 
@@ -174,7 +169,9 @@ function importSummary(receipts: Array<Record<string, unknown>>): Record<string,
       import_count: 0,
       skip_count: 0,
       blocked_count: 0,
-      context_files: body?.context_files ?? null
+      context_files: null,
+      context_files_configured: isRecord(body?.context_files),
+      context_files_returned: false
     };
   }
 
@@ -187,7 +184,9 @@ function importSummary(receipts: Array<Record<string, unknown>>): Record<string,
     import_count: summary?.import_count ?? null,
     skip_count: summary?.skip_count ?? null,
     blocked_count: summary?.blocked_count ?? null,
-    context_files: body.context_files ?? null
+    context_files: null,
+    context_files_configured: isRecord(body.context_files),
+    context_files_returned: false
   };
 }
 
@@ -208,7 +207,7 @@ function terminalRepair(sessions: Array<{ id: string; status: string; terminal_s
       plane: "BitterGrid",
       subject: `terminal:${session.id}`,
       status: session.terminal_status,
-      repair_action: session.terminal_message ?? "Request a fresh hosted workcell terminal fulfillment."
+      repair_action: "Retry terminal fulfillment or use the BitterGrid support workflow."
     }));
 }
 
@@ -219,7 +218,7 @@ function agentRepair(launches: Array<{ id: string; status: string; repair_action
       plane: "Factory",
       subject: `agent_launch:${launch.id}`,
       status: "blocked",
-      repair_action: launch.repair_action ?? "Create a supported ready agent launch envelope."
+      repair_action: "Repair provider readiness through the owner-plane support workflow, then retry the launch."
     }));
 }
 
@@ -241,6 +240,6 @@ function gridPublishRepair(publishes: Array<{ id: string; status: string; repair
       plane: "BitterGrid",
       subject: `grid_publish:${publish.id}`,
       status: publish.status,
-      repair_action: publish.repair_action ?? "Retry publish after checking Grid configuration."
+      repair_action: "Retry publish through the BitterGrid support workflow."
     }));
 }

@@ -3,14 +3,18 @@ import type { Repository } from "./repos";
 import { repoToJson } from "./repos";
 import { listEvents, listRefs } from "./events";
 import { listCheckpoints } from "./checkpoints";
-import { listDeployments, listReceipts } from "./deployments";
-import { listMirrorTargets, mirrorToJson } from "./mirrors";
+import { listDeployments, listReceipts, receiptSupportJson } from "./deployments";
+import { listMirrorTargets, mirrorSupportJson } from "./mirrors";
 import { listRepoRemotes } from "./import-export";
 import { listIssues, issueToJson } from "./issues";
 import { listPullRequests, pullRequestToJson } from "./pull-requests";
 import { listSecretRefs, secretRefSupportJson } from "./secrets";
 import { findAccountAppByRepo } from "./apps";
-import { findSetupStateForRepo, setupProgressToJson, setupStateToJson } from "./app-bundles";
+import {
+  findSetupStateForRepo,
+  setupProgressSupportJson,
+  setupStateSupportJson
+} from "./app-bundles";
 import { hostedWorkcellSessionSupportJson, listHostedWorkcellSessionsForRepo } from "./hosted-sessions";
 import {
   assertionRevocationToSupportJson,
@@ -18,7 +22,7 @@ import {
   listAssertionRevocationsForAccount,
   listAssertionUsesForAccount
 } from "./assertion-trust";
-import { hostedAgentLaunchToJson, listHostedAgentLaunchesForRepo } from "./agent-launches";
+import { hostedAgentLaunchSupportJson, listHostedAgentLaunchesForRepo } from "./agent-launches";
 import { charterFirstRunSupportJson, listCharterFirstRunsForRepo } from "./charter-first-runs";
 import {
   listSecretGrantRequestsForRepo,
@@ -33,6 +37,7 @@ export function supportBundle(repo: Repository): Record<string, unknown> {
   const events = listEvents(repo);
   const deployments = listDeployments(repo);
   const receipts = listReceipts(repo);
+  const supportReceipts = receipts.map(receiptSupportJson);
   const app = findAccountAppByRepo(repo);
   const setupState = findSetupStateForRepo(repo);
   return {
@@ -58,10 +63,10 @@ export function supportBundle(repo: Repository): Record<string, unknown> {
       plan_key: app.plan_key,
       github_required: false
     } : null,
-    setup_state: setupState ? setupStateToJson(setupState) : null,
-    setup_progress: setupState ? setupProgressToJson(setupState) : null,
+    setup_state: setupState ? setupStateSupportJson(setupState) : null,
+    setup_progress: setupState ? setupProgressSupportJson(setupState) : null,
     hosted_workcell_sessions: listHostedWorkcellSessionsForRepo(repo).map(hostedWorkcellSessionSupportJson),
-    hosted_agent_launches: listHostedAgentLaunchesForRepo(repo).map(hostedAgentLaunchToJson),
+    hosted_agent_launches: listHostedAgentLaunchesForRepo(repo).map(hostedAgentLaunchSupportJson),
     charter_first_runs: listCharterFirstRunsForRepo(repo).map(charterFirstRunSupportJson),
     repo: repoToJson(repo),
     refs: listRefs(repo),
@@ -72,11 +77,11 @@ export function supportBundle(repo: Repository): Record<string, unknown> {
     checkpoints: listCheckpoints(repo),
     deployments,
     grid_publish_requests: listGridPublishRequestsForRepo(repo).map(gridPublishSupportJson),
-    receipts,
+    receipts: supportReceipts,
     issues: listIssues(repo).map((issue) => issueToJson(repo, issue)),
     pull_requests: listPullRequests(repo).map((pr) => pullRequestToJson(repo, pr)),
-    mirrors: listMirrorTargets(repo).map(mirrorToJson),
-    remotes: listRepoRemotes(repo),
+    mirrors: listMirrorTargets(repo).map(mirrorSupportJson),
+    remotes: listRepoRemotes(repo).map(repoRemoteSupportJson),
     secret_refs: listSecretRefs(repo).map(secretRefSupportJson),
     secret_grants: listSecretGrantRequestsForRepo(repo).map(secretGrantRequestSupportJson),
     pass_materializations: listSecretMaterializationRequestsForRepo(repo).map(secretMaterializationRequestSupportJson),
@@ -97,6 +102,22 @@ export function supportBundle(repo: Repository): Record<string, unknown> {
       secret_ref_count: listSecretRefs(repo).length,
       secret_grant_count: listSecretGrantRequestsForRepo(repo).length
     }
+  };
+}
+
+function repoRemoteSupportJson(remote: ReturnType<typeof listRepoRemotes>[number]): Record<string, unknown> {
+  return {
+    id: remote.id,
+    repo_id: remote.repo_id,
+    name: remote.name,
+    provider: remote.provider,
+    remote_url: null,
+    remote_url_returned: false,
+    remote_configured: Boolean(remote.remote_url),
+    role: remote.role,
+    created_at: remote.created_at,
+    removed_at: remote.removed_at,
+    projection: "support_safe_v1"
   };
 }
 

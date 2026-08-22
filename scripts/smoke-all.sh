@@ -54,6 +54,8 @@ scripts/smoke-gate-49-public-git-url-import-app-bundle.sh
 scripts/smoke-gate-51-real-grid-terminal-fulfillment.sh
 scripts/smoke-gate-52-real-provider-readiness-charter-launch.sh
 scripts/smoke-gate-53-public-runtime-safety.sh
+scripts/smoke-gate-54-support-disclosure-boundary.sh
+scripts/smoke-gate-55-ref-authorization.sh
 bun test
 
 echo "All locally reproducible BitterGit smoke gates passed"

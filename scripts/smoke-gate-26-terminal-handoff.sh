@@ -72,11 +72,9 @@ rg "Terminal ready" "$TERMINAL_HTML" >/dev/null
 rg "Source is saved in BitterGit" "$TERMINAL_HTML" >/dev/null
 rg "GitHub is optional" "$TERMINAL_HTML" >/dev/null
 rg "APP.md" "$TERMINAL_HTML" >/dev/null
-rg "$APP_ID" "$TERMINAL_HTML" >/dev/null
-rg "$ACCOUNT_REF" "$TERMINAL_HTML" >/dev/null
 rg "$BASE_URL/$OWNER/$REPO.git" "$TERMINAL_HTML" >/dev/null
-if rg "bgt_|github.com" "$TERMINAL_HTML" >/dev/null; then
-  echo "terminal handoff leaked token material or pointed at GitHub" >&2
+if rg "$APP_ID|<dt>Account|bgt_|github.com" "$TERMINAL_HTML" >/dev/null; then
+  echo "terminal handoff leaked internal scope, token material, or pointed at GitHub" >&2
   exit 1
 fi
 
@@ -87,9 +85,14 @@ const text = await Bun.file(process.argv[1]).text();
 if (text.includes("bgt_")) throw new Error("support leaked token material");
 const session = JSON.parse(text).support.hosted_workcell_sessions.find((entry) => entry.id === process.argv[2]);
 if (!session) throw new Error("support missing hosted terminal session");
-if (!String(session.terminal_url).startsWith(`${process.argv[3]}/terminals/`)) throw new Error("support terminal URL was not fetchable");
+if (session.terminal_url !== null || session.terminal_url_configured !== true || session.terminal_url_returned !== false) {
+  throw new Error("support terminal URL posture was not fail closed");
+}
+if (session.terminal_route !== null || session.terminal_route_configured !== true || session.terminal_route_returned !== false) {
+  throw new Error("support terminal route posture was not fail closed");
+}
 if (session.terminal_provider !== "bittergrid_contract_local") throw new Error("support missing terminal provider");
 if (session.terminal_status !== "ready") throw new Error("support terminal status not ready");
-' "$SUPPORT_JSON" "$SESSION_ID" "$BASE_URL"
+' "$SUPPORT_JSON" "$SESSION_ID"
 
 echo "Gate 26 smoke passed for terminal handoff $TERMINAL_URL"

@@ -3,6 +3,7 @@ import { recordRefUpdate } from "./events";
 import { tokenCanWriteRef } from "./tokens";
 import { scanUnsafeSource } from "./source-safety";
 import { syncMirrors } from "./mirrors";
+import { unauthorizedUpdateRefs } from "./ref-authorization";
 
 const ZERO_SHA = "0000000000000000000000000000000000000000";
 
@@ -22,17 +23,23 @@ async function main(): Promise<void> {
     .map((line) => line.trim())
     .filter((line) => line.length > 0)
     .map((line) => {
-      const [oldSha, newSha, ref] = line.split(/\s+/);
+      const [oldSha = "", newSha = "", ref = ""] = line.split(/\s+/);
       return { oldSha, newSha, ref };
     });
 
   if (mode === "pre-receive") {
     for (const update of updates) {
       if (!update.oldSha || !update.newSha || !update.ref) fail("invalid ref update input");
+    }
+
+    const deniedRef = unauthorizedUpdateRefs(
+      updates,
+      (ref) => tokenCanWriteRef(scopes, ref)
+    )[0];
+    if (deniedRef) fail(`token ${actor} cannot write ${deniedRef}`);
+
+    for (const update of updates) {
       if (update.newSha === ZERO_SHA) continue;
-      if (!tokenCanWriteRef(scopes, update.ref)) {
-        fail(`token ${actor} cannot write ${update.ref}`);
-      }
       if (update.ref.startsWith("refs/heads/")) {
         scanUnsafeSource(repo.storage_path, update.newSha);
       }

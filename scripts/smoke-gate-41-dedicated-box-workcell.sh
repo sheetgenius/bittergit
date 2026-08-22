@@ -119,9 +119,8 @@ if (fulfillment.lifecycle !== "dedicated_box_local_adapter_ready") throw new Err
 curl -fsS "$TERMINAL_URL" >"$TERMINAL_HTML"
 rg "Terminal mode" "$TERMINAL_HTML" >/dev/null
 rg "dedicated_box_local_adapter" "$TERMINAL_HTML" >/dev/null
-rg "grid-host-01" "$TERMINAL_HTML" >/dev/null
-if rg "bgt_|BEGIN OPENSSH|PRIVATE KEY|sk_live_|github.com" "$TERMINAL_HTML" >/dev/null; then
-  echo "terminal page leaked token/key/secret material or GitHub" >&2
+if rg "grid-host-01|bgt_|BEGIN OPENSSH|PRIVATE KEY|sk_live_|github.com" "$TERMINAL_HTML" >/dev/null; then
+  echo "terminal page leaked topology, token/key/secret material, or GitHub" >&2
   exit 1
 fi
 
@@ -168,7 +167,10 @@ if (!session) throw new Error("support missing session");
 const fulfillment = session.terminal_fulfillment;
 if (fulfillment.owner_plane !== "BitterGrid") throw new Error("support owner plane mismatch");
 if (fulfillment.mode !== "dedicated_box_local_adapter") throw new Error("support mode mismatch");
-if (fulfillment.box_ref !== "grid-host-01") throw new Error("support box ref mismatch");
+if (fulfillment.box_ref !== null) throw new Error("support returned Grid box ref");
+if (fulfillment.box_ref_configured !== true || fulfillment.box_ref_returned !== false) {
+  throw new Error("support box-ref posture mismatch");
+}
 if (fulfillment.cleanup_status !== "revoked") throw new Error("support cleanup status mismatch");
 if (fulfillment.token_in_url !== false || fulfillment.clone_url_has_token !== false) throw new Error("support token URL posture failed");
 ' "$SUPPORT_JSON" "$SESSION_ID"

@@ -17,7 +17,7 @@ Read these before making product, architecture, or implementation changes:
 
 ## Current hard stop
 
-Every locally reproducible gate through Gate 53 has executable coverage. Gate
+Every locally reproducible gate through Gate 55 has executable coverage. Gate
 50 is a cross-repository Factory contract and is not part of the standalone
 BitterGit suite. Run `scripts/verify.sh` before treating a meaningful change
 as safe.
@@ -35,6 +35,10 @@ Keep these invariants green:
 - token-free remote URLs and run-scoped credential helpers;
 - refusal to store secret values;
 - support/debug redaction;
+- support and terminal views that omit infrastructure topology, local paths,
+  credential references, and raw downstream errors;
+- ref authorization before every push deletion, pull-request merge, and generic
+  Git import mutation;
 - non-loopback startup safety;
 - repository-read authorization for terminal handoff pages outside the demo;
 - server-local artifact imports restricted to an allowed root.

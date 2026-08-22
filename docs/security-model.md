@@ -19,6 +19,10 @@ fail closed when custody is ambiguous.
 - non-loopback server-local artifact imports stay under an allowed root;
 - support/debug surfaces are designed to omit values, raw private logs, and
   provider auth material.
+- support and terminal projections omit server paths, Grid topology refs,
+  production SSH targets, credential references, and raw downstream failures;
+- protected-ref authorization applies to deletions, pull-request base refs, and
+  every destination ref in a generic Git import before mutation begins.
 
 ## Development-only surfaces
 
