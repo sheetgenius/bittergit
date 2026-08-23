@@ -13,6 +13,7 @@ import { createSourceReceipt } from "./deployments";
 import { importFromGitRemote, type ImportRecord, type ImportSourceAuth } from "./import-export";
 import type { Repository } from "./repos";
 import { updateRepositoryDefaultBranch } from "./repos";
+import { tokenCanWriteRef } from "./tokens";
 import {
   bitterGridDeploymentContractMd,
   sourceContextFileReport,
@@ -72,7 +73,9 @@ export function createGitImportAppBundle(
       source_url: source.url,
       default_branch: defaultBranch,
       source_auth: input.source_auth
-    }, "system:git-import-app-bundle");
+    }, "system:git-import-app-bundle", {
+      authorizeRef: (ref) => tokenCanWriteRef(["repo:admin"], ref)
+    });
 
     if (importRecord.status !== "ok") {
       throw new Error(importRecord.error ?? "git import failed");

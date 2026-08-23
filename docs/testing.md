@@ -22,7 +22,7 @@ The wrapper:
 
 1. creates an isolated data root;
 2. starts BitterGit on a configurable local port;
-3. runs every locally reproducible gate through Gate 53;
+3. runs every locally reproducible gate through Gate 55;
 4. restarts the service and verifies Gate 3 persistence;
 5. removes temporary state.
 

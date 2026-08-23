@@ -172,11 +172,15 @@ if (!writeSession) throw new Error("repo support missing write session");
 if (writeSession.production_ssh.mode !== "operate") throw new Error("repo support write mode mismatch");
 if (writeSession.production_ssh.write_enabled !== true) throw new Error("repo support write flag missing");
 if (writeSession.production_ssh.write_reason_present !== true) throw new Error("repo support missing write reason presence");
-if (writeSession.production_ssh.target.host_ref !== "grid-host-01") throw new Error("repo support target mismatch");
+if (writeSession.production_ssh.target.host_ref !== null) throw new Error("repo support returned SSH target");
+if (writeSession.production_ssh.target_configured !== true || writeSession.production_ssh.target_ref_returned !== false) {
+  throw new Error("repo support target posture mismatch");
+}
 const appSupport = JSON.parse(appText).support;
 const latest = appSupport.workcell.production_ssh_latest;
 if (latest.mode !== "operate" || latest.write_enabled !== true) throw new Error("app support latest production SSH mismatch");
 if (latest.owner_plane !== "BitterGrid") throw new Error("app support owner plane mismatch");
+if (latest.target.host_ref !== null || latest.target_ref_returned !== false) throw new Error("app support returned SSH target");
 ' "$REPO_SUPPORT_JSON" "$APP_SUPPORT_JSON" "$SESSION_ID" "$WRITE_SESSION_ID"
 
 rg "scripts/smoke-gate-39-production-ssh-session.sh" scripts/smoke-all.sh >/dev/null

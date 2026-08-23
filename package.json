@@ -1,7 +1,7 @@
 {
   "name": "bittergit",
   "version": "0.1.0",
-  "description": "Experimental Git-compatible source custody for AI-assisted app workflows",
+  "description": "Open-source, self-hosted Git service for AI coding agents",
   "license": "Apache-2.0",
   "private": true,
   "type": "module",
@@ -13,11 +13,18 @@
     "type": "git",
     "url": "https://github.com/sheetgenius/bittergit.git"
   },
+  "homepage": "https://bittergit.com/",
+  "bugs": {
+    "url": "https://github.com/sheetgenius/bittergit/issues"
+  },
   "keywords": [
+    "agentic-coding",
+    "ai-agents",
     "git",
+    "git-server",
+    "self-hosted",
     "source-control",
-    "source-custody",
-    "ai-agents"
+    "source-custody"
   ],
   "scripts": {
     "start": "bun run src/server.ts",
