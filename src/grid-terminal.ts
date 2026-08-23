@@ -181,7 +181,7 @@ export async function requestGridProviderReadiness(input: {
     execution_session_id: input.execution_session_id,
     source_root: input.source_root,
     origin_remote: input.origin_remote
-  }).catch((error) => ({
+  }).catch(() => ({
     cli: {
       provider,
       command: provider,
@@ -190,9 +190,7 @@ export async function requestGridProviderReadiness(input: {
       source: "bittergrid_exec",
       version: null,
       path_returned: false as const,
-      repair_action: error instanceof Error
-        ? error.message
-        : `Install or mount the ${provider} CLI in the hosted workcell.`,
+      repair_action: `Retry Grid readiness, then install or mount the ${provider} CLI if it remains unavailable.`,
       checked_by: "bittergrid_exec",
       exit_code: null
     },
@@ -243,6 +241,67 @@ export function gridTerminalFulfillmentFromJson(
     }
   }
   return normalizeStoredFulfillment(fallback);
+}
+
+export function gridTerminalFulfillmentSupportJson(
+  fulfillment: GridTerminalFulfillment
+): Record<string, unknown> {
+  const needsRepair = fulfillment.status === "blocked" || Boolean(fulfillment.repair_action);
+  return {
+    id: fulfillment.id,
+    provider: fulfillment.provider,
+    mode: fulfillment.mode,
+    owner_plane: fulfillment.owner_plane,
+    box_ref: null,
+    box_ref_configured: Boolean(fulfillment.box_ref),
+    box_ref_returned: false,
+    dedicated_box_requested: fulfillment.dedicated_box_requested,
+    dedicated_box_available: fulfillment.dedicated_box_available,
+    fallback_reason: fulfillment.fallback_reason
+      ? "The requested Grid capacity is unavailable; a compatible fallback may be active."
+      : null,
+    repair_action: needsRepair
+      ? "Retry terminal fulfillment or use the owner-plane support workflow."
+      : null,
+    route: null,
+    route_configured: Boolean(fulfillment.route),
+    route_returned: false,
+    url: null,
+    url_configured: Boolean(fulfillment.url),
+    url_returned: false,
+    status: fulfillment.status,
+    lifecycle: fulfillment.lifecycle,
+    message: supportFulfillmentMessage(fulfillment),
+    readiness_state: fulfillment.readiness_state,
+    source_root: null,
+    source_root_returned: false,
+    app_id: fulfillment.app_id,
+    repo_id: fulfillment.repo_id,
+    account_ref: fulfillment.account_ref,
+    origin_remote: null,
+    origin_remote_configured: Boolean(fulfillment.origin_remote),
+    origin_remote_returned: false,
+    credential_delivery: fulfillment.credential_delivery === "run_scoped_git_credential_helper"
+      ? "run_scoped_git_credential_helper"
+      : "configured",
+    token_in_url: false,
+    clone_url_has_token: false,
+    cleanup_status: fulfillment.cleanup_status,
+    grid_api_url: null,
+    grid_api_url_returned: false,
+    grid_workcell_id: null,
+    grid_workcell_key: null,
+    grid_execution_session_id: null,
+    grid_operation_ref: null,
+    grid_workcell_linked: Boolean(fulfillment.grid_workcell_id || fulfillment.grid_workcell_key),
+    grid_execution_session_linked: Boolean(fulfillment.grid_execution_session_id),
+    grid_operation_linked: Boolean(fulfillment.grid_operation_ref),
+    grid_refs_returned: false,
+    parent_context: supportParentContext(fulfillment.parent_context),
+    created_at: fulfillment.created_at,
+    updated_at: fulfillment.updated_at,
+    projection: "support_safe_v1"
+  };
 }
 
 export function revokeGridTerminalFulfillment(
@@ -480,11 +539,11 @@ async function requestBitterGridApiFulfillment(
       created_at: now,
       updated_at: new Date().toISOString()
     };
-  } catch (error) {
+  } catch {
     return {
       ...blockedGridFulfillment(input, request, now),
       message: "BitterGrid workcell fulfillment needs repair before the hosted terminal is ready.",
-      repair_action: error instanceof Error ? error.message : "Retry Grid terminal fulfillment."
+      repair_action: "Retry Grid terminal fulfillment or use the BitterGrid support workflow."
     };
   }
 }
@@ -672,8 +731,8 @@ function recentExecutionSession(workcell: Record<string, unknown>, sessionId: st
   return sessions.find((session) => isRecord(session) && String(session.id ?? "") === String(sessionId)) as Record<string, unknown> | undefined ?? null;
 }
 
-function operationFailureMessage(operation: Record<string, unknown>, fallback: string): string {
-  return sanitizeRepairAction(operation.error_message, fallback);
+function operationFailureMessage(_operation: Record<string, unknown>, fallback: string): string {
+  return fallback;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -792,16 +851,13 @@ async function gridProviderAuthEvidence(input: {
       credential_material_returned: false,
       auth_files_returned: false,
       includes_secret_value: false,
-      repair_action: ready ? null : sanitizeRepairAction(
-        stringValue(plan?.next_action, "") || stringValue(payload.next_action, ""),
-        "Repair the BitterPass provider auth bundle before launching this agent."
-      ),
+      repair_action: ready ? null : "Repair the BitterPass provider auth bundle before launching this agent.",
       checked_by: "bittergrid_terminal_provider_bootstrap_dry_run",
       bundle_present: true,
       bootstrap_status: planStatus,
       secret_material_returned: false
     };
-  } catch (error) {
+  } catch {
     return {
       provider: input.provider,
       source: "bitterpass_provider_bootstrap_plan",
@@ -812,9 +868,7 @@ async function gridProviderAuthEvidence(input: {
       credential_material_returned: false,
       auth_files_returned: false,
       includes_secret_value: false,
-      repair_action: error instanceof Error
-        ? sanitizeRepairAction(error.message, "Repair the BitterPass provider auth bundle before launching this agent.")
-        : "Repair the BitterPass provider auth bundle before launching this agent.",
+      repair_action: "Repair the BitterPass provider auth bundle before launching this agent.",
       checked_by: "bittergrid_terminal_provider_bootstrap_dry_run",
       bundle_present: true,
       bootstrap_status: "blocked",
@@ -976,7 +1030,7 @@ class GridApiError extends Error {
   payload: Record<string, unknown>;
 
   constructor(status: number, payload: Record<string, unknown>) {
-    super(typeof payload.error === "string" ? payload.error : `BitterGrid API request failed with ${status}`);
+    super(`BitterGrid API request failed with ${status}`);
     this.status = status;
     this.payload = payload;
   }
@@ -1136,6 +1190,33 @@ function sanitizeGridText(value: unknown): string | null {
 function sanitizeRepairAction(value: unknown, fallback: string): string {
   const sanitized = sanitizeGridText(value);
   return sanitized || fallback;
+}
+
+function supportFulfillmentMessage(fulfillment: GridTerminalFulfillment): string {
+  if (fulfillment.status === "revoked") {
+    return "Hosted workcell session revoked; terminal fulfillment is no longer active.";
+  }
+  if (fulfillment.status === "blocked") {
+    return "Terminal fulfillment needs repair before the hosted terminal is ready.";
+  }
+  if (fulfillment.status === "ready") {
+    return fulfillment.dedicated_box_requested
+      ? "Dedicated terminal fulfillment is ready for this app-scoped workcell."
+      : "Terminal fulfillment is ready for this app-scoped workcell.";
+  }
+  return "Terminal fulfillment is in progress for this app-scoped workcell.";
+}
+
+function supportParentContext(
+  value: GridTerminalFulfillment["parent_context"]
+): Record<string, unknown> | null {
+  if (!value) return null;
+  const allowedFiles = new Set(["AGENTS.md", "CLAUDE.md", "GEMINI.md"]);
+  return {
+    status: value.status === "installed" || value.status === "needs_repair" ? value.status : "unknown",
+    files: value.files.filter((file) => allowedFiles.has(file)),
+    canonical_instructions: value.canonical_instructions === "AGENTS.md" ? "AGENTS.md" : null
+  };
 }
 
 function safeOriginRemote(value: unknown): string {

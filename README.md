@@ -101,7 +101,7 @@ strong, distinct secrets are supplied for its network bind:
 
 ```bash
 docker build -t bittergit .
-docker run --rm -p 7420:7420 \
+docker run --rm -p 127.0.0.1:7420:7420 \
   -e BITTERGIT_DEV_TOKEN="$(openssl rand -hex 32)" \
   -e BITTERGIT_ASSERTION_SECRET="$(openssl rand -hex 32)" \
   -e BITTERGIT_PUBLIC_BASE_URL='http://localhost:7420' \

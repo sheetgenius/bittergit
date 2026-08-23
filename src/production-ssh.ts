@@ -134,13 +134,19 @@ export function productionSshSupportJson(
     write_enabled: policy.write_enabled,
     write_reason_required: policy.write_reason_required,
     write_reason_present: policy.write_reason_present,
-    target: policy.target,
+    target: {
+      service: null,
+      host_ref: null
+    },
+    target_configured: Boolean(policy.target.service || policy.target.host_ref),
+    target_ref_returned: false,
     owner_plane: policy.owner_plane,
     access_status: sessionStatus === "revoked" ? "revoked" : policy.enabled ? "available" : "disabled",
     credential_material_returned: false,
     key_material_returned: false,
     command_output_included: false,
-    private_logs_included: false
+    private_logs_included: false,
+    projection: "support_safe_v1"
   };
 }
 

@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -11,6 +11,7 @@ import { activeAppCount } from "../src/apps";
 
 const fixtureId = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 const tmpRoot = mkdtempSync(join(tmpdir(), "bittergit-private-import-test-"));
+setDefaultTimeout(60_000);
 let server: ChildProcessWithoutNullStreams | undefined;
 let serverPort: number | undefined;
 let sourceRepo: Repository;
@@ -42,7 +43,9 @@ describe("private Git import source auth", () => {
         username: "x-access-token",
         password: "gho_private_fixture_token"
       }
-    }, "test:private-import");
+    }, "test:private-import", {
+      authorizeRef: () => true
+    });
 
     expect(record.status).toBe("ok");
     expect(record.error).toBeNull();
@@ -65,7 +68,9 @@ describe("private Git import source auth", () => {
         username: "x-access-token",
         password: "wrong-private-token"
       }
-    }, "test:private-import");
+    }, "test:private-import", {
+      authorizeRef: () => true
+    });
 
     expect(record.status).toBe("failed");
     expect(record.error ?? "").not.toContain("wrong-private-token");

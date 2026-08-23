@@ -115,22 +115,50 @@ export function mirrorToJson(target: MirrorTarget): Record<string, unknown> {
     last_mirrored_sha: target.last_mirrored_sha,
     last_success_at: target.last_success_at,
     last_failure_at: target.last_failure_at,
-    last_error: target.last_error,
+    last_error: publicMirrorError(target),
     last_checked_at: target.last_checked_at,
     diverged_at: target.diverged_at,
     actions: mirrorActions(target)
   };
 }
 
+export function mirrorSupportJson(target: MirrorTarget): Record<string, unknown> {
+  return {
+    id: target.id,
+    repo_id: target.repo_id,
+    provider: target.provider,
+    remote_url: null,
+    remote_url_returned: false,
+    remote_configured: Boolean(target.remote_url),
+    credential_ref: null,
+    credential_ref_present: Boolean(target.credential_ref),
+    credential_ref_returned: false,
+    enabled: target.enabled === 1,
+    status: target.status,
+    last_mirrored_sha: target.last_mirrored_sha,
+    last_success_at: target.last_success_at,
+    last_failure_at: target.last_failure_at,
+    last_error: target.last_error ? "Mirror synchronization needs repair." : null,
+    last_error_details_returned: false,
+    last_checked_at: target.last_checked_at,
+    diverged_at: target.diverged_at,
+    actions: mirrorActions(target),
+    projection: "support_safe_v1"
+  };
+}
+
 export function listMirrorRuns(repo: Repository, target: MirrorTarget): unknown[] {
   const db = ensureStorage();
-  return db.query(`
+  return db.query<Record<string, unknown>, [string, string]>(`
     SELECT id, repo_id, mirror_target_id, status, trigger, ref_count,
            last_mirrored_sha, error, created_at
     FROM mirror_runs
     WHERE repo_id = ? AND mirror_target_id = ?
     ORDER BY created_at ASC
-  `).all(repo.id, target.id);
+  `).all(repo.id, target.id).map((run) => ({
+    ...run,
+    error: publicMirrorRunError(run)
+  }));
 }
 
 export function syncMirrors(repo: Repository, trigger: string): void {
@@ -258,6 +286,26 @@ function mirrorActions(target: MirrorTarget): string[] {
   if (target.status === "diverged") return ["repair", "import", "disable"];
   if (target.status === "failed") return ["sync", "repair", "disable"];
   return ["sync", "disable"];
+}
+
+function publicMirrorError(target: MirrorTarget): string | null {
+  if (!target.last_error) return null;
+  if (target.status === "diverged") return "downstream mirror moved outside BitterGit";
+  if (target.status === "disabled") return "mirror disabled";
+  return "mirror sync failed; verify remote reachability, credentials, and ref permissions";
+}
+
+function publicMirrorRunError(run: Record<string, unknown>): string | null {
+  if (!run.error) return null;
+  if (run.status === "diverged") return "downstream mirror moved outside BitterGit";
+  if (run.status === "disabled") return "mirror disabled";
+  if (run.trigger === "repair") {
+    return "mirror repair failed; verify remote reachability, credentials, and ref permissions";
+  }
+  if (run.trigger === "import") {
+    return "mirror import failed; verify remote reachability, credentials, and ref permissions";
+  }
+  return "mirror sync failed; verify remote reachability, credentials, and ref permissions";
 }
 
 function validateMirrorRemote(provider: string, remoteUrl: string): void {

@@ -309,6 +309,183 @@ export function hostedAgentLaunchToJson(launch: HostedAgentLaunch): Record<strin
   };
 }
 
+export function hostedAgentLaunchSupportJson(launch: HostedAgentLaunch): Record<string, unknown> {
+  const providerCli = providerCliFromJson(launch.provider_cli_json, launch.provider);
+  const providerAuth = providerAuthFromJson(launch.provider_auth_json, launch.provider, launch.provider_auth_status);
+  const readiness = readinessEvidenceFromJson(launch.readiness_evidence_json, launch);
+  const contract = launchContractFromJson(launch.launch_contract_json, launch);
+  const runtimeRefs = contract.runtime_refs && typeof contract.runtime_refs === "object"
+    ? contract.runtime_refs
+    : {};
+  const sourceFiles = Array.isArray(readiness.source_files_visible) ? readiness.source_files_visible : [];
+  const expectedWorkflow = Array.isArray(contract.expected_workflow) ? contract.expected_workflow : [];
+  const failureReason = supportFailureReason(launch.failure_reason);
+  return {
+    id: launch.id,
+    session_id: launch.session_id,
+    app_id: launch.app_id,
+    repo_id: launch.repo_id,
+    account_ref: launch.account_ref,
+    workspace_ref: launch.workspace_ref,
+    provider: launch.provider,
+    status: launch.status,
+    source_root: null,
+    source_root_returned: false,
+    origin_remote: supportOriginRemote(launch.origin_remote),
+    instructions_path: null,
+    charter_path: null,
+    source_paths_returned: false,
+    first_task: launch.first_task,
+    run_scope_ref: null,
+    run_scope_ref_returned: false,
+    git_token_ref: null,
+    git_token_ref_returned: false,
+    provider_cli: {
+      provider: launch.provider,
+      command: launch.provider === "claude" ? "claude" : "codex",
+      available: providerCli.available,
+      status: providerCli.available ? "available" : "missing",
+      source: providerCli.source === "bittergrid_executor_command_v"
+        ? "bittergrid_executor_command_v"
+        : "local_launch_contract",
+      version: null,
+      version_detected: Boolean(providerCli.version),
+      path_returned: false,
+      repair_action: providerCli.available
+        ? null
+        : `Retry provider readiness, then install or mount the ${launch.provider} CLI if it remains unavailable.`,
+      checked_by: providerCli.source === "bittergrid_executor_command_v"
+        ? "bittergrid_exec"
+        : "local_launch_contract",
+      exit_code: providerCli.exit_code
+    },
+    provider_auth: {
+      provider: launch.provider,
+      source: supportProviderAuthSource(providerAuth.source),
+      status: providerAuth.status === "mounted" ? "mounted" : "blocked",
+      mount_status: providerAuth.status === "mounted" ? "mounted" : "blocked",
+      reference_present: providerAuth.reference_present,
+      reference_returned: false,
+      credential_material_returned: false,
+      auth_files_returned: false,
+      includes_secret_value: false,
+      repair_action: providerAuth.status === "mounted"
+        ? null
+        : "Repair the provider auth mount through the owner-plane support workflow.",
+      checked_by: providerAuth.checked_by === "bittergrid_terminal_provider_bootstrap_dry_run"
+        ? "bittergrid_terminal_provider_bootstrap_dry_run"
+        : "local_launch_contract",
+      bundle_present: providerAuth.bundle_present,
+      bootstrap_status: providerAuth.status === "mounted" ? "ready" : "blocked",
+      secret_material_returned: false
+    },
+    readiness_evidence: {
+      evidence_source: readiness.evidence_source === "bittergrid_exec" ? "bittergrid_exec" : "local_checkout",
+      session_ready: readiness.session_ready,
+      source_root_exists: readiness.source_root_exists,
+      instructions_present: readiness.instructions_present,
+      charter_present: readiness.charter_present,
+      origin_remote_is_bittergit: readiness.origin_remote_is_bittergit,
+      origin_remote_has_token: readiness.origin_remote_has_token,
+      provider_cli_available: readiness.provider_cli_available,
+      provider_auth_ready: readiness.provider_auth_ready,
+      git_credential_delivery: "run_scoped_credential_helper",
+      terminal_url_has_token: readiness.terminal_url_has_token,
+      source_files_visible: sourceFiles.filter((file) => file === "AGENTS.md" || file === "APP.md"),
+      grid_workcell_id: null,
+      grid_execution_session_id: null,
+      grid_workcell_linked: Boolean(readiness.grid_workcell_id),
+      grid_execution_session_linked: Boolean(readiness.grid_execution_session_id),
+      grid_refs_returned: false
+    },
+    launch_contract: {
+      provider: launch.provider,
+      source_root: null,
+      instructions_path: null,
+      charter_path: null,
+      source_paths_returned: false,
+      first_prompt: contract.first_prompt,
+      implementation_before_charter: contract.implementation_before_charter,
+      expected_workflow: expectedWorkflow.filter((step) => typeof step === "string").slice(0, 8),
+      runtime_refs: {
+        bittergit_session_id: launch.session_id,
+        bittergit_workcell_id: null,
+        bittergit_run_scope_ref: null,
+        factory_run_ref: null,
+        grid_workcell_id: null,
+        grid_execution_session_id: null,
+        bitter_session_ref: null,
+        bitter_log_ref: null
+      },
+      factory_run_linked: Boolean(runtimeRefs.factory_run_ref),
+      grid_workcell_linked: Boolean(runtimeRefs.grid_workcell_id),
+      grid_execution_session_linked: Boolean(runtimeRefs.grid_execution_session_id),
+      bitter_session_linked: Boolean(runtimeRefs.bitter_session_ref),
+      bitter_log_linked: Boolean(runtimeRefs.bitter_log_ref),
+      runtime_refs_returned: false
+    },
+    readiness_state: launch.readiness_state,
+    failure_reason: failureReason,
+    repair_action: supportLaunchRepairAction(failureReason, launch.provider),
+    launch_message: launch.status === "ready"
+      ? `${launch.provider} launch envelope is ready; establish the app charter before implementation.`
+      : `${launch.provider} launch needs repair before it can start.`,
+    created_at: launch.created_at,
+    updated_at: launch.updated_at,
+    projection: "support_safe_v1"
+  };
+}
+
+function supportProviderAuthSource(value: string): string {
+  if (value === "bitterpass_provider_bootstrap_plan") return value;
+  if (value === "factory_provider_auth_mount") return value;
+  if (value === "local_dev_subscription_contract") return value;
+  return "local_launch_contract";
+}
+
+function supportOriginRemote(value: string): string {
+  if (!value || hasTokenMaterial(value)) return "";
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return "";
+    if (parsed.username || parsed.password || parsed.search || parsed.hash) return "";
+    return parsed.toString();
+  } catch {
+    return "";
+  }
+}
+
+function supportFailureReason(value: string | null): string | null {
+  if (!value) return null;
+  return [
+    "session_not_ready",
+    "missing_charter_scaffold",
+    "unsupported_provider",
+    "provider_cli_unavailable",
+    "provider_auth_not_mounted"
+  ].includes(value) ? value : "launch_blocked";
+}
+
+function supportLaunchRepairAction(failureReason: string | null, provider: string): string | null {
+  if (!failureReason) return null;
+  if (failureReason === "session_not_ready") {
+    return "Create or refresh a ready hosted workcell session before launching an agent.";
+  }
+  if (failureReason === "missing_charter_scaffold") {
+    return "Restore AGENTS.md and APP.md before launching a hosted agent.";
+  }
+  if (failureReason === "unsupported_provider") {
+    return "Choose claude or codex for the hosted agent launch envelope.";
+  }
+  if (failureReason === "provider_cli_unavailable") {
+    return `Retry provider readiness, then install or mount the ${provider} CLI if it remains unavailable.`;
+  }
+  if (failureReason === "provider_auth_not_mounted") {
+    return "Repair the provider auth mount through the owner-plane support workflow.";
+  }
+  return "Use the owner-plane support workflow to repair this launch.";
+}
+
 function requireLaunchSession(
   assertion: AccountAssertion,
   appId: string,

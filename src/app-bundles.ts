@@ -198,6 +198,62 @@ export function setupProgressToJson(state: AppSetupState): Record<string, unknow
   };
 }
 
+export function setupStateSupportJson(state: AppSetupState): Record<string, unknown> {
+  const steps = supportSetupSteps(state);
+  const done = steps.filter((entry) => entry.status === "done").length;
+  const total = steps.length || 1;
+  return {
+    id: state.id,
+    app_id: state.app_id,
+    repo_id: state.repo_id,
+    status: supportSetupStatus(state.status),
+    current_step: supportSetupStep(state.current_step),
+    progress_percent: Math.round((done / total) * 100),
+    steps,
+    events: supportSetupEvents(state),
+    repairable: state.status === "repair_required",
+    repair_action: supportSetupRepairAction(state),
+    user_message: supportSetupUserMessage(state),
+    error: null,
+    error_present: Boolean(state.error),
+    error_details_returned: false,
+    receipt_id: state.receipt_id,
+    checkpoint_id: state.checkpoint_id,
+    created_at: state.created_at,
+    updated_at: state.updated_at,
+    projection: "support_safe_v1"
+  };
+}
+
+export function setupProgressSupportJson(state: AppSetupState): Record<string, unknown> {
+  const setup = setupStateSupportJson(state);
+  return {
+    app_id: state.app_id,
+    repo_id: state.repo_id,
+    status: setup.status,
+    current_step: setup.current_step,
+    progress_percent: setup.progress_percent,
+    polling: {
+      mode: "stable_poll",
+      poll_after_ms: state.status === "ready" || state.status === "repair_required" ? null : 1000
+    },
+    steps: setup.steps,
+    events: setup.events,
+    owner_plane: ownerPlaneForStep(state.current_step),
+    repairable: setup.repairable,
+    repair_action: setup.repair_action,
+    user_message: setup.user_message,
+    error_present: setup.error_present,
+    error_details_returned: false,
+    includes_token_material: false,
+    includes_secret_values: false,
+    includes_raw_source_contents: false,
+    includes_private_logs: false,
+    updated_at: state.updated_at,
+    projection: "support_safe_v1"
+  };
+}
+
 export function listSetupEventsForApp(appId: string): AppSetupEvent[] {
   return ensureStorage().query<AppSetupEvent, [string]>(`
     SELECT id, app_id, repo_id, status, step, message, created_at
@@ -232,6 +288,88 @@ function setupProgressEvent(event: Record<string, unknown>): Record<string, unkn
     repair_action: String(event.status ?? "") === "repair_required" ? repairActionForStep(step) : null,
     created_at: event.created_at
   };
+}
+
+function supportSetupSteps(state: AppSetupState): Array<Record<string, unknown>> {
+  let steps: unknown = [];
+  try {
+    steps = JSON.parse(state.steps_json);
+  } catch {
+    steps = [];
+  }
+  if (!Array.isArray(steps)) return [];
+  return steps
+    .filter((entry): entry is Record<string, unknown> => typeof entry === "object" && entry !== null && !Array.isArray(entry))
+    .map((entry) => {
+      const key = supportSetupStep(String(entry.name ?? ""));
+      const status = supportSetupStatus(String(entry.status ?? "unknown"));
+      return {
+        key,
+        label: labelForStep(key),
+        status,
+        owner_plane: ownerPlaneForStep(key),
+        repair_action: state.status === "repair_required" && status !== "done"
+          ? repairActionForStep(key)
+          : null
+      };
+    });
+}
+
+function supportSetupEvents(state: AppSetupState): Array<Record<string, unknown>> {
+  return listSetupEventsForApp(state.app_id).map((event) => {
+    const step = supportSetupStep(event.step);
+    const status = supportSetupStatus(event.status);
+    return {
+      step,
+      label: labelForStep(step),
+      status,
+      owner_plane: ownerPlaneForStep(step),
+      message: supportSetupEventMessage(status),
+      repair_action: status === "repair_required" ? repairActionForStep(step) : null,
+      created_at: event.created_at
+    };
+  });
+}
+
+function supportSetupStep(value: string): string {
+  return [
+    "account_app",
+    "bittergit_repo",
+    "blank_source",
+    "artifact_import_review",
+    "git_import",
+    "imported_source",
+    "charter_scaffold",
+    "initial_checkpoint",
+    "setup_receipt",
+    "setup_complete",
+    "repo_created",
+    "failed"
+  ].includes(value) ? value : "unknown";
+}
+
+function supportSetupStatus(value: string): string {
+  return ["ready", "in_progress", "repair_required", "done", "pending", "unknown"].includes(value)
+    ? value
+    : "unknown";
+}
+
+function supportSetupRepairAction(state: AppSetupState): string {
+  return state.status === "repair_required"
+    ? "Retry app bundle setup from the persisted account app and BitterGit repo."
+    : "No repair needed.";
+}
+
+function supportSetupUserMessage(state: AppSetupState): string {
+  if (state.status === "ready") return "App source is ready. Open the terminal and establish the charter in APP.md.";
+  if (state.status === "repair_required") return "Setup needs repair before the terminal is opened.";
+  return "App setup is in progress.";
+}
+
+function supportSetupEventMessage(status: string): string {
+  if (status === "ready" || status === "done") return "Setup step completed.";
+  if (status === "repair_required") return "Setup step needs repair.";
+  return "Setup step status updated.";
 }
 
 function labelForStep(step: string): string {

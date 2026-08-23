@@ -21,6 +21,7 @@ jobs:
         with:
           bun-version: 1.3.13
       - run: bun install --frozen-lockfile
+      - run: bun audit
       - run: git diff --check "$(git hash-object -t tree /dev/null)" HEAD
       - run: bun run check:shell
       - run: bun test
@@ -53,5 +54,10 @@ jobs:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: docker build -t bittergit:test .
+      - name: Confirm runtime tools
+        run: >-
+          docker run --rm --entrypoint sh bittergit:test -c
+          'command -v unzip >/dev/null && command -v zipinfo >/dev/null &&
+          git http-backend </dev/null >/dev/null 2>&1'
       - name: Confirm non-root runtime
         run: test "$(docker run --rm --entrypoint id bittergit:test -u)" != "0"

@@ -1495,12 +1495,12 @@ async function route(request: Request): Promise<Response> {
 
     const auth = authenticate(request, { repoId: repo.id, require: "repo:write" });
     if (!auth.ok) return unauthorized();
-    if (!tokenCanWriteRef(auth.scopes ?? [], "refs/heads/main")) {
-      return unauthorized("token cannot merge into refs/heads/main");
-    }
 
     const pr = findPullRequestByNumber(repo, Number.parseInt(pullRequestMergeMatch[3], 10));
     if (!pr) return json({ error: "pull request not found" }, 404);
+    if (!tokenCanWriteRef(auth.scopes ?? [], pr.base_ref)) {
+      return unauthorized(`token cannot merge into ${pr.base_ref}`);
+    }
 
     try {
       const result = mergePullRequest(repo, pr, auth.actor ?? "unknown");
@@ -1676,7 +1676,11 @@ async function route(request: Request): Promise<Response> {
       if (!auth.ok) return unauthorized();
       try {
         const body = await request.json() as { provider?: string; source_url?: string; default_branch?: string };
-        return json({ import: importFromGitRemote(repo, body, auth.actor ?? "unknown") }, 201);
+        return json({
+          import: importFromGitRemote(repo, body, auth.actor ?? "unknown", {
+            authorizeRef: (ref) => tokenCanWriteRef(auth.scopes ?? [], ref)
+          })
+        }, 201);
       } catch (error) {
         return json({ error: error instanceof Error ? error.message : "invalid import" }, 422);
       }
